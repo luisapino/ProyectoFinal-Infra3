@@ -1,0 +1,21 @@
+import express from "express";
+import authRoutes from "./routes/authRoutes";
+import productRoutes from "./routes/productRoutes";
+import cartRoutes from "./routes/cartRoutes";
+import { AppDataSource } from "./config/database";
+
+const app = express();
+app.use(express.json());
+
+app.use("/auth", authRoutes);
+app.use("/products", productRoutes);
+app.use("/cart", cartRoutes);
+
+console.log(process.env.DB_PASSWORD);
+
+AppDataSource.initialize()
+    .then(() => {
+        console.log("Database connected");
+        app.listen(3000, () => console.log("Server running on port 3000"));
+    })
+    .catch((error) => console.log(error));
