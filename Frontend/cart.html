@@ -1,0 +1,31 @@
+<!-- cart.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carrito - E-commerce</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <nav class="navbar">
+        <h1>E-commerce</h1>
+        <div class="nav-links">
+            <a href="catalog.html">Catálogo</a>
+            <button id="logout">Cerrar Sesión</button>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <div class="cart-container">
+            <h2>Tu Carrito</h2>
+            <div id="cartItems">
+                <!-- Cart items will be loaded here -->
+            </div>
+            <button id="purchaseBtn" class="purchase-btn">Realizar Compra</button>
+        </div>
+    </div>
+    <script src="script/cart.js"></script>
+</body>
+</html>

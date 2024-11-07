@@ -35,3 +35,9 @@ export const purchaseCart = async (userId: number) => {
         await cartRepo.remove(cart);
     }
 };
+
+export const getCart = async (userId: number) => {
+    const cartRepo = AppDataSource.getRepository(Cart);
+    const cart = await cartRepo.findOne({ where: { user: { id: userId } }, relations: ["productList"] });
+    return cart;
+};
