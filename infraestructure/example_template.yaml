@@ -1,0 +1,245 @@
+Parameters:
+  # Parámetros para la configuración de la base de datos RDS
+  DBInstanceClass:
+    Type: String
+    Default: db.t3.micro
+    Description: Tipo de instancia para la base de datos.
+  DBAllocatedStorage:
+    Type: Number
+    Default: 20
+    Description: Tamaño del almacenamiento en GB para la base de datos.
+  DBName:
+    Type: String
+    Default: ecommerce_db
+    Description: Nombre de la base de datos en RDS.
+  DBUsername:
+    Type: String
+    Default: postgres
+    Description: Usuario de la base de datos.
+  DBPassword:
+    Type: String
+    NoEcho: true
+    Default: password
+    Description: Contraseña para la base de datos en RDS.
+  DBPort:
+    Type: Number
+    Default: 5432
+    Description: Puerto para la base de datos en RDS.
+
+  # Parámetros para la configuración de la instancia EC2
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    Description: Tipo de instancia para el servidor EC2.
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: MyKeyPair
+    Description: Nombre del par de claves SSH para acceder a la instancia EC2.
+
+  # Parámetros para la configuración del backend dentro de la instancia EC2
+  BackendPort:
+    Type: Number
+    Default: 3000
+    Description: Puerto para el backend de la aplicación.
+  JwtSecret:
+    Type: String
+    Default: f1878ae99c35e588ab657ce6c0692405f6c6e589550f3d1ceeb974f6c316612a
+    Description: Secreto para JWT.
+
+Mappings:
+  RegionMap:
+    us-east-1:
+      AMI: ami-467ca739
+    us-west-1:
+      AMI: ami-bf5540df
+    eu-west-1:
+      AMI: ami-3bfab942
+    ap-southeast-1:
+      AMI: ami-e2adf99e
+    ap-southeast-2:
+      AMI: ami-43874721
+
+Resources:
+  # VPC
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: MyVPC
+
+  # Subnets en diferentes zonas de disponibilidad
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs ''
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: PublicSubnet1
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select
+        - 1
+        - !GetAZs ''
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: PublicSubnet2
+
+  # Internet Gateway y Attach a la VPC
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # Route Table para Subnets Públicas
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: PublicRouteTable
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  SubnetRouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  SubnetRouteTableAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  # Grupo de Subredes para RDS con ambas Subnets
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnets para RDS
+      SubnetIds:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      Tags:
+        - Key: Name
+          Value: RDSSubnetGroup
+
+  # Security Group para RDS
+  RdsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Permitir acceso desde EC2 a RDS
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref DBPort
+          ToPort: !Ref DBPort
+          SourceSecurityGroupId: !GetAtt BackendInstanceSecurityGroup.GroupId
+
+  # Instancia de RDS PostgreSQL
+  RDSInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceClass: !Ref DBInstanceClass
+      AllocatedStorage: !Ref DBAllocatedStorage
+      Engine: postgres
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword: !Ref DBPassword
+      DBName: !Ref DBName
+      VPCSecurityGroups:
+        - !Ref RdsSecurityGroup
+      PubliclyAccessible: false
+      DBSubnetGroupName: !Ref DBSubnetGroup
+
+  # Security Group para EC2
+  BackendInstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Permitir acceso SSH y HTTP desde Internet
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: !Ref BackendPort
+          ToPort: !Ref BackendPort
+          CidrIp: 0.0.0.0/0
+
+  # Instancia EC2
+  BackendInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      SecurityGroupIds:
+        - !Ref BackendInstanceSecurityGroup
+      SubnetId: !Ref PublicSubnet1
+      ImageId: !FindInMap
+        - RegionMap
+        - !Ref AWS::Region
+        - AMI
+      UserData: !Base64
+        Fn::Sub: |
+          #!/bin/bash
+          sudo su - ec2-user
+          cd /home/ec2-user
+          sudo yum update -y
+          sudo yum install -y git
+          curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+          source ~/.bashrc
+          nvm install v20.17.0
+          npm install -g yarn
+          git clone https://github.com/luisapino/ProyectoFinal-Infra3.git
+          cd /home/ec2-user/ProyectoFinal-Infra3
+          git checkout back
+          git pull origin back
+          cd /home/ec2-user/ProyectoFinal-Infra3/backend
+          cat <<EOF > .env
+          PORT=${BackendPort}
+          JWT_SECRET=${JwtSecret}
+          DB_HOST=${RDSInstance.Endpoint.Address}
+          DB_PORT=${DBPort}
+          DB_USERNAME=${DBUsername}
+          DB_PASSWORD=${DBPassword}
+          DB_DATABASE=${DBName}
+          EOF
+          yarn install
+          yarn build
+          yarn start
+      Tags:
+        - Key: Name
+          Value: BackInstance
+
+Outputs:
+  RDSHost:
+    Description: Dirección del RDS PostgreSQL
+    Value: !GetAtt RDSInstance.Endpoint.Address
+  EC2PublicIP:
+    Description: Dirección pública de la instancia EC2
+    Value: !GetAtt BackendInstance.PublicIp

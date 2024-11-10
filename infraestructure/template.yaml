@@ -1,0 +1,214 @@
+Parameters:
+  # Parámetros para la configuración de la base de datos RDS
+  DBInstanceClass:
+    Type: String
+    Default: db.t3.micro
+    Description: Tipo de instancia para la base de datos.
+  DBAllocatedStorage:
+    Type: Number
+    Default: 20
+    Description: Tamaño del almacenamiento en GB para la base de datos.
+  DBName:
+    Type: String
+    Default: ecommerce_db
+    Description: Nombre de la base de datos en RDS.
+  DBUsername:
+    Type: String
+    Default: postgres
+    Description: Usuario de la base de datos.
+  DBPassword:
+    Type: String
+    NoEcho: true
+    Default: password
+    Description: Contraseña para la base de datos en RDS.
+  DBPort:
+    Type: Number
+    Default: 5432
+    Description: Puerto para la base de datos en RDS.
+
+  # Parámetros para la configuración de la instancia EC2
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    Description: Tipo de instancia para el servidor EC2.
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: vockey
+    Description: Nombre del par de claves SSH para acceder a la instancia EC2.
+
+  # Parámetros para la configuración del backend dentro de la instancia EC2
+  BackendPort:
+    Type: Number
+    Default: 3000
+    Description: Puerto para el backend de la aplicación.
+  JwtSecret:
+    Type: String
+    Default: f1878ae99c35e588ab657ce6c0692405f6c6e589550f3d1ceeb974f6c316612a
+    Description: Secreto para JWT.
+
+Mappings:
+  RegionMap:
+    us-east-1:
+      AMI: ami-467ca739
+    us-west-1:
+      AMI: ami-bf5540df
+    eu-west-1:
+      AMI: ami-3bfab942
+    ap-southeast-1:
+      AMI: ami-e2adf99e
+    ap-southeast-2:
+      AMI: ami-43874721
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: MyVPC
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: PublicRouteTable
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  BackendSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs ''
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: BackendSubnet1
+
+  SubnetRouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref BackendSubnet1
+      RouteTableId: !Ref PublicRouteTable
+  
+  BackendSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select
+        - 1
+        - !GetAZs ''
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: BackendSubnet2
+
+  # Associate the second subnet with the public route table
+  SubnetRouteTableAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref BackendSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  BackendInstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Permitir acceso SSH y HTTP desde Internet
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: !Ref BackendPort
+          ToPort: !Ref BackendPort
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: BackendInstanceSecurityGroup
+
+  BackendInstance1:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      SecurityGroupIds:
+        - !Ref BackendInstanceSecurityGroup
+      SubnetId: !Ref BackendSubnet1
+      ImageId: !FindInMap
+        - RegionMap
+        - !Ref AWS::Region
+        - AMI
+      Tags:
+        - Key: Name
+          Value: BackendInstance
+
+  RdsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Permitir acceso desde EC2 a RDS
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref DBPort
+          ToPort: !Ref DBPort
+          SourceSecurityGroupId: !GetAtt BackendInstanceSecurityGroup.GroupId
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: "Subnet group for RDS instance"
+      SubnetIds:
+        - !Ref BackendSubnet1
+        - !Ref BackendSubnet2
+      Tags:
+        - Key: Name
+          Value: RDSSubnetGroup
+
+  CustomDBParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: Custom DB parameter group with SSL disabled
+      Family: postgres14
+      Parameters:
+        rds.force_ssl: "0"
+
+  RDSInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceClass: !Ref DBInstanceClass
+      AllocatedStorage: !Ref DBAllocatedStorage
+      Engine: postgres
+      EngineVersion: 14.13,
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword: !Ref DBPassword
+      DBName: !Ref DBName
+      VPCSecurityGroups:
+        - !Ref RdsSecurityGroup
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      DBParameterGroupName: !Ref CustomDBParameterGroup
+      PubliclyAccessible: true
