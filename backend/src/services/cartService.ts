@@ -10,13 +10,16 @@ export const addToCart = async (userId: number, productId: number) => {
 
     let cart = await cartRepo.findOne({ where: { user: { id: userId } }, relations: ["productList"] });
     const product = await productRepo.findOneBy({ id: productId });
+    if (!product) throw new Error("Product not found");
 
     if (!cart) {
         const user = await userRepo.findOneBy({ id: userId });
         if (!user || !product) return;
         cart = cartRepo.create({ user, productList: [product] });
     } else {
-        cart.productList.push(product!);
+        if(cart.productList.find((p) => p.id === productId)) throw new Error("Product already in cart");
+        if (product.bought) throw new Error("Product already bought");
+        cart.productList.push(product);
     }
     await cartRepo.save(cart);
 };
@@ -24,12 +27,14 @@ export const addToCart = async (userId: number, productId: number) => {
 export const purchaseCart = async (userId: number) => {
     const cartRepo = AppDataSource.getRepository(Cart);
     const productRepo = AppDataSource.getRepository(Product);
-
-    const cart = await cartRepo.findOne({ where: { user: { id: userId } }, relations: ["productList"] });
+    const userRepo = AppDataSource.getRepository(User);
+    const user = await userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new Error("User not found");
+    const cart = await cartRepo.findOne({ where: { user: { id: user.id } }, relations: ["productList"] });
     if (cart) {
         cart.productList.forEach((product) => {
             product.bought = true;
-            product.buyerUser = cart.user;
+            product.buyerUser = user
         });
         await productRepo.save(cart.productList);
         await cartRepo.remove(cart);

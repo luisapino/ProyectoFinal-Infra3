@@ -8,6 +8,10 @@ export const addProductToCart = async (req: Request, res: Response): Promise<voi
             res.status(400).json({ message: "User not authenticated" });
             return;
         }
+        if (!req.body.productId) {
+            res.status(400).json({ message: "Product id is required" });
+            return;
+        }
         const userId = req.user.id;
         const { productId } = req.body;
         await addToCart(userId, productId);
