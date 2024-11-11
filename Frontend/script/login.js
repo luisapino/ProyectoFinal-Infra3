@@ -1,3 +1,4 @@
+import { backendPort, backendUrl } from "./API.js";
 
 $(document).ready(function() {
     $('#loginForm').on('submit', function(e) {
@@ -7,7 +8,7 @@ $(document).ready(function() {
         const password = $('#password').val();
 
         $.ajax({
-            url: 'http://localhost:3000/auth/login',
+            url: `${backendUrl}:${backendPort}/auth/login`,
             method: 'POST',
             contentType: 'application/json',
             data: JSON.stringify({ email, password }),

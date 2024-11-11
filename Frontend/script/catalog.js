@@ -1,4 +1,5 @@
-// catalog.js
+import { backendPort, backendUrl } from "./API.js";
+
 $(document).ready(function() {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -8,7 +9,7 @@ $(document).ready(function() {
 
     function loadProducts() {
         $.ajax({
-            url: 'http://localhost:3000/products/available',
+            url: `${backendUrl}:${backendPort}/products/available`,
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`
@@ -32,7 +33,7 @@ $(document).ready(function() {
 
     window.addToCart = function(productId) {
         $.ajax({
-            url: 'http://localhost:3000/cart/add',
+            url: `${backendUrl}:${backendPort}/cart/add`,
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`

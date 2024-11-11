@@ -1,4 +1,5 @@
-// register.js
+import { backendPort, backendUrl } from "./API.js";
+
 $(document).ready(function() {
     $('#registerForm').on('submit', function(e) {
         e.preventDefault();
@@ -11,7 +12,7 @@ $(document).ready(function() {
         };
 
         $.ajax({
-            url: 'http://localhost:3000/auth/register',
+            url: `${backendUrl}:${backendPort}/auth/register`,
             method: 'POST',
             contentType: 'application/json',
             data: JSON.stringify(userData),
