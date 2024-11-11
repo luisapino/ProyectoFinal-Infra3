@@ -169,37 +169,50 @@ Resources:
       UserData: !Base64
         Fn::Sub: |
           #!/bin/bash
-          sudo yum update -y
-          sudo yum install git -y
-          cd /home/ec2-user
-          sudo -u ec2-user curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-          sudo -u ec2-user export NVM_DIR="/home/ec2-user/.nvm"
-          sudo -u ec2-user [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-          sudo -u ec2-user . $NVM_DIR/nvm.sh
-          sudo -u ec2-user nvm install v16.20.2
-          sudo -u ec2-user export PATH="/home/ec2-user/.nvm/versions/node/v16.20.2/bin:$PATH"
-          sudo -u ec2-user npm install -g yarn
-          sudo -u ec2-user npm install -g pm2
-          cd /home/ec2-user
-          sudo -u ec2-user git clone https://github.com/luisapino/ProyectoFinal-Infra3.git
-          cd ProyectoFinal-Infra3/
+          yum update -y
+          yum install -y git
+
+          sudo -u ec2-user bash -c "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash"
+
+          export NVM_DIR="/home/ec2-user/.nvm"
+
+          sudo -u ec2-user bash -c 'export NVM_DIR="/home/ec2-user/.nvm" && \
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && \
+            nvm install v16.20.2 && nvm alias default v16.20.2'
+
+          echo 'export NVM_DIR="$HOME/.nvm"' >> /home/ec2-user/.bashrc
+          echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"' >> /home/ec2-user/.bashrc
+          echo 'export PATH="$NVM_DIR/versions/node/v16.20.2/bin:$PATH"' >> /home/ec2-user/.bashrc
+
+          sudo -u ec2-user bash -c 'export NVM_DIR="/home/ec2-user/.nvm" && \
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && \
+            npm install -g yarn pm2'
+
+          sudo -u ec2-user git clone https://github.com/luisapino/ProyectoFinal-Infra3.git /home/ec2-user/ProyectoFinal-Infra3
+          cd /home/ec2-user/ProyectoFinal-Infra3
           sudo -u ec2-user git checkout back
-          cd backend/
 
-          sudo -u ec2-user bash -c "source $NVM_DIR/nvm.sh && yarn install && yarn build"
+          cd /home/ec2-user/ProyectoFinal-Infra3/backend
 
-          sudo -u ec2-user bash -c "cat <<EOF > .env
+          sudo -u ec2-user bash -c 'export NVM_DIR="/home/ec2-user/.nvm" && \
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && \
+            yarn install && yarn build'
+
+          cat <<EOF > /home/ec2-user/ProyectoFinal-Infra3/backend/.env
+          PORT=${BackendPort}
+          JWT_SECRET=${JwtSecret}
           DB_HOST=${RDSInstance.Endpoint.Address}
+          DB_PORT=${DBPort}
           DB_USERNAME=${DBUsername}
           DB_PASSWORD=${DBPassword}
           DB_DATABASE=${DBName}
-          DB_PORT=${DBPort}
-          PORT=${BackendPort}
-          JWT_SECRET=${JwtSecret}
-          EOF"
+          EOF
 
-          sudo -u ec2-user bash -c "source $NVM_DIR/nvm.sh && pm2 start yarn -- start && pm2 save && pm2 startup"
-
+          sudo -u ec2-user bash -c 'export NVM_DIR="/home/ec2-user/.nvm" && \
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && \
+            pm2 start yarn -- start && \
+            pm2 save && \
+            pm2 startup'
 
   RdsSecurityGroup:
     Type: AWS::EC2::SecurityGroup
