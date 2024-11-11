@@ -1,3 +1,4 @@
+#!/bin/bash
 sudo su - ec2-user
 cd /home/ec2-user
 sudo yum install -y git
@@ -9,6 +10,13 @@ git clone https://github.com/luisapino/ProyectoFinal-Infra3.git
 cd ProyectoFinal-Infra3/
 git checkout back
 cd backend/
+cat <<EOF > .env
+DB_HOST=${RDSInstance.Endpoint.Address}
+DB_USER=${DBUsername}
+DB_PASS=${DBPassword}
+DB_NAME=${DBName}
+PORT=${BackendPort}
+EOF
 yarn install
 yarn build
 yarn start

@@ -166,6 +166,37 @@ Resources:
       Tags:
         - Key: Name
           Value: BackendInstance
+      UserData: !Base64
+        Fn::Sub: |
+          #!/bin/bash
+          sudo -u ec2-user -i <<'EOF'
+          sudo yum update -y
+          sudo yum install git -y
+          curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+          nvm install v16.20.2
+          npm install -g yarn
+          npm install -g pm2
+          cd /home/ec2-user
+          git clone https://github.com/luisapino/ProyectoFinal-Infra3.git
+          cd ProyectoFinal-Infra3/
+          git checkout back
+          git pull origin back
+          cd backend/
+          yarn install
+          yarn build
+          echo "DB_HOST=${RDSInstance.Endpoint.Address}" > .env
+          echo "DB_USERNAME=${DBUsername}" >> .env
+          echo "DB_PASSWORD=${DBPassword}" >> .env
+          echo "DB_DATABASE=${DBName}" >> .env
+          echo "DB_PORT=${DBPort}" >> .env
+          echo "PORT=${BackendPort}" >> .env
+          echo "JWT_SECRET=${JwtSecret}" >> .env
+          cd /home/ec2-user/ProyectoFinal-Infra3/
+          pm2 start yarn start
+          EOF
 
   RdsSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -193,7 +224,7 @@ Resources:
     Type: AWS::RDS::DBParameterGroup
     Properties:
       Description: Custom DB parameter group with SSL disabled
-      Family: postgres14
+      Family: postgres16
       Parameters:
         rds.force_ssl: "0"
 
@@ -203,7 +234,6 @@ Resources:
       DBInstanceClass: !Ref DBInstanceClass
       AllocatedStorage: !Ref DBAllocatedStorage
       Engine: postgres
-      EngineVersion: 14.13,
       MasterUsername: !Ref DBUsername
       MasterUserPassword: !Ref DBPassword
       DBName: !Ref DBName
