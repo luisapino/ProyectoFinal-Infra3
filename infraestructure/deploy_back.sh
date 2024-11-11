@@ -10,13 +10,15 @@ git clone https://github.com/luisapino/ProyectoFinal-Infra3.git
 cd ProyectoFinal-Infra3/
 git checkout back
 cd backend/
-cat <<EOF > .env
+sudo -u ec2-user bash -c "cat <<EOF > .env
 DB_HOST=${RDSInstance.Endpoint.Address}
-DB_USER=${DBUsername}
-DB_PASS=${DBPassword}
-DB_NAME=${DBName}
+DB_USERNAME=${DBUsername}
+DB_PASSWORD=${DBPassword}
+DB_DATABASE=${DBName}
+DB_PORT=${DBPort}
 PORT=${BackendPort}
-EOF
+JWT_SECRET=${JwtSecret}
+EOF"
 yarn install
 yarn build
 yarn start
