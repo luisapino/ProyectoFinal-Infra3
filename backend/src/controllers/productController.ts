@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { initializeProducts as initProducts, getAvailableProducts as getProducts } from "../services/productService";
+import { initializeProducts as initProducts, getAvailableProducts as getProducts, getMyBoughtProducts as getBoughtProducts } from "../services/productService";
 
 export const initializeProducts = async (_req: Request, res: Response): Promise<void> => {
     try {
@@ -42,3 +42,17 @@ export const getAvailableProducts = async (_req: Request, res: Response): Promis
         res.status(500).json({ message: "Error retrieving products", error });
     }
 };
+
+export const getMyBoughtProducts = async (req: Request, res: Response): Promise<void> => {
+    try {
+        if (!req.user) {
+            res.status(400).json({ message: "User not authenticated" });
+            return;
+        }
+        const userId = req.user.id;
+        const products = await getBoughtProducts(userId);
+        res.json(products);
+    } catch (error) {
+        res.status(500).json({ message: "Error retrieving products", error });
+    }
+}
