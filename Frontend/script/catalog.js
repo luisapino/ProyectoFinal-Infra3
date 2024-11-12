@@ -19,7 +19,6 @@ $(document).ready(function() {
                     <div class="product-card">
                         <img src="${product.imageUrl}" alt="${product.name}">
                         <h3>${product.name}</h3>
-                        <p>${product.description}</p>
                         <button onclick="addToCart(${product.id})">Añadir al carrito</button>
                     </div>
                 `).join('');
@@ -27,6 +26,22 @@ $(document).ready(function() {
             },
             error: function() {
                 alert('Error al cargar los productos');
+            }
+        });
+    }
+
+    function initializeProducts() {
+        $.ajax({
+            url: `${backendUrl}:${backendPort}/products/initialize`,
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            success: function() {
+                loadProducts(); 
+            },
+            error: function() {
+                alert('Error al inicializar los productos');
             }
         });
     }
@@ -52,6 +67,10 @@ $(document).ready(function() {
     $('#logout').click(function() {
         localStorage.removeItem('token');
         window.location.href = 'index.html';
+    });
+
+    $('#initializeProducts').click(function() {
+        initializeProducts();
     });
 
     loadProducts();

@@ -22,7 +22,6 @@ $(document).ready(function() {
                 cartContainer.append(`
                     <div class="product-card">
                         <h3>${item.name}</h3>
-                        <p>Description: ${item.description}</p>
                         <img src="${item.imageUrl}" alt="${item.name}" />
                     </div>
                 `);
