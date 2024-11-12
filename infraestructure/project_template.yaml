@@ -223,6 +223,10 @@ Resources:
           FromPort: !Ref FrontendPort
           ToPort: !Ref FrontendPort
           CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
 
   BackendSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -259,8 +263,6 @@ Resources:
             sudo amazon-linux-extras install epel -y
             sudo yum install stress -y
             sudo yum install -y httpd
-            sudo systemctl start httpd
-            sudo systemctl enable httpd
             sudo yum install -y git
             cd /home/ec2-user/
             git clone https://github.com/luisapino/ProyectoFinal-Infra3.git
@@ -269,12 +271,12 @@ Resources:
             cd /home/ec2-user/ProyectoFinal-Infra3/Frontend/script
             sudo rm API.js
             cat <<EOF > /home/ec2-user/ProyectoFinal-Infra3/Frontend/script/API.js
-            export const backendUrl = '${BackendALB.DNSName}';
+            export const backendUrl = 'http://${BackendALB.DNSName}';
             export const backendPort = '${BackendPort}';
             EOF
             cd /home/ec2-user/ProyectoFinal-Infra3/Frontend/
             sudo cp . -r /var/www/html/
-            sudo systemctl restart httpd
+            sudo service httpd start
         TagSpecifications:
           - ResourceType: instance
             Tags:
