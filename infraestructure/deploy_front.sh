@@ -1,13 +1,17 @@
-sudo su - ec2-user
-cd /home/ec2-user
-sudo yum update
-sudo yum install httpd
-sudo systemctl start httpd
-sudo systemctl enable httpd
-sudo yum install -y git
+yum update
+yum install httpd
+systemctl start httpd
+systemctl enable httpd
+yum install -y git
+cd /home/ec2-user/
 git clone https://github.com/luisapino/ProyectoFinal-Infra3.git
-cd ProyectoFinal-Infra3/
+cd /home/ec2-user/ProyectoFinal-Infra3/
 git checkout front
-cd Frontend/
-sudo cp . -r /var/www/html/
+cd /home/ec2-user/ProyectoFinal-Infra3/Frontend/
+cat <<EOF > /home/ec2-user/ProyectoFinal-Infra3/Frontend/script/API.js
+export const backendUrl = ${BackendLoadBalancer.DNSName};
+export const backendPort = ${BackendPort};
+EOF
+cd /home/ec2-user/ProyectoFinal-Infra3/Frontend/
+sudo cp /home/ec2-user/ProyectoFinal-Infra3/Frontend/ -r /var/www/html/
 sudo systemctl restart apache2
