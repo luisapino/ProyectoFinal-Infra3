@@ -1,0 +1,613 @@
+Parameters:
+  # Parámetro del nombre del evironment
+  EnvironmentName:
+    Description: Nombre del evnironment
+    Type: String
+    Default: PrInfra
+
+  # Parametros de la VPC y subredes
+  VPCCIDR:
+    Description: Enter CIDR notation for VPC
+    Type: String
+    Default: 10.10.0.0/16
+  PublicSubnet1CIDR:
+    Description: Enter CIDR notation for public subnet in first Availability Zone
+    Type: String
+    Default: 10.10.1.0/24
+  PublicSubnet2CIDR:
+    Description: Enter CIDR notation for public subnet in second Availability Zone
+    Type: String
+    Default: 10.10.2.0/24
+  PrivateSubnet1CIDR:
+    Description: Enter CIDR notation for private subnet in first Availability Zone
+    Type: String
+    Default: 10.10.3.0/24
+  PrivateSubnet2CIDR:
+    Description: Enter CIDR notation for private subnet in second Availability Zone
+    Type: String
+    Default: 10.10.4.0/24
+
+  # Parámetros para la configuración de la base de datos RDS
+  DBInstanceClass:
+    Type: String
+    Default: db.t3.micro
+    Description: Tipo de instancia para la base de datos.
+  DBAllocatedStorage:
+    Type: Number
+    Default: 20
+    Description: Tamaño del almacenamiento en GB para la base de datos.
+  DBName:
+    Type: String
+    Default: ecommerce_db
+    Description: Nombre de la base de datos en RDS.
+  DBUsername:
+    Type: String
+    Default: postgres
+    Description: Usuario de la base de datos.
+  DBPassword:
+    Type: String
+    NoEcho: true
+    Default: password
+    Description: Contraseña para la base de datos en RDS.
+  DBPort:
+    Type: Number
+    Default: 5432
+    Description: Puerto para la base de datos en RDS.
+
+  # Parámetros para la configuración de la instancia EC2
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    Description: Tipo de instancia para el servidor EC2.
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: vockey
+    Description: Nombre del par de claves SSH para acceder a la instancia EC2.
+
+  # Parámetros para la configuración del backend dentro de la instancia EC2
+  BackendPort:
+    Type: Number
+    Default: 3000
+    Description: Puerto para el backend de la aplicación.
+  JwtSecret:
+    Type: String
+    Default: f1878ae99c35e588ab657ce6c0692405f6c6e589550f3d1ceeb974f6c316612a
+    Description: Secreto para JWT.
+
+  # Parámetros para la configuración del frontend dentro de la instancia EC2
+  FrontendPort:
+    Type: Number
+    Default: 80
+    Description: Puerto para el frontend de la aplicación.
+
+Mappings:
+  RegionMap:
+    us-east-1:
+      AMI: ami-467ca739
+    us-west-1:
+      AMI: ami-bf5540df
+    eu-west-1:
+      AMI: ami-3bfab942
+    ap-southeast-1:
+      AMI: ami-e2adf99e
+    ap-southeast-2:
+      AMI: ami-43874721
+
+Resources:
+  #----------------------------------------------VPC----------------------------------------------
+  VPC:
+    Type: AWS::EC2::VPC
+    DeletionPolicy: Delete
+    Properties:
+      CidrBlock: !Ref VPCCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} VPC
+
+  #----------------------------------------------Internet Gateway----------------------------------------------
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    DeletionPolicy: Delete
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Internet Gateway
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    DeletionPolicy: Delete
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  #----------------------------------------------Subnets----------------------------------------------
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    DeletionPolicy: Delete
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs ''
+      CidrBlock: !Ref PublicSubnet1CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Subnet (AZ1)
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    DeletionPolicy: Delete
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select
+        - 1
+        - !GetAZs ''
+      CidrBlock: !Ref PublicSubnet2CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Subnet (AZ2)
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    DeletionPolicy: Delete
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs ''
+      CidrBlock: !Ref PrivateSubnet1CIDR
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Subnet (AZ1)
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    DeletionPolicy: Delete
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select
+        - 1
+        - !GetAZs ''
+      CidrBlock: !Ref PrivateSubnet2CIDR
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Subnet (AZ2)
+
+  #--------------------------------------------Public route and associations--------------------------------------------
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    DeletionPolicy: Delete
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Routes
+
+  DefaultPublicRoute:
+    Type: AWS::EC2::Route
+    DeletionPolicy: Delete
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DeletionPolicy: Delete
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet1
+
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DeletionPolicy: Delete
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet2
+
+  #----------------------------------------------Security Groups----------------------------------------------
+
+  FrontendSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    DeletionPolicy: Delete
+    Properties:
+      GroupDescription: Enable HTTP access on the inbound port ${FrontendPort}
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref FrontendPort
+          ToPort: !Ref FrontendPort
+          CidrIp: 0.0.0.0/0
+
+  BackendSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    DeletionPolicy: Delete
+    Properties:
+      GroupDescription: Enable HTTP access on the inbound port ${BackendPort}
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref BackendPort
+          ToPort: !Ref BackendPort
+          SourceSecurityGroupId: !GetAtt FrontendSecurityGroup.GroupId
+
+  #----------------------------------------------Launch Templates----------------------------------------------
+
+  FrontendLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    DeletionPolicy: Delete
+    Properties:
+      LaunchTemplateName: !Sub ${EnvironmentName}FLT
+      LaunchTemplateData:
+        ImageId: !FindInMap
+          - RegionMap
+          - !Ref AWS::Region
+          - AMI
+        InstanceType: !Ref InstanceType
+        KeyName: !Ref KeyName
+        SecurityGroupIds:
+          - !GetAtt FrontendSecurityGroup.GroupId
+        UserData: !Base64
+          Fn::Sub: |
+            #!/bin/bash
+            sudo yum update -y
+            sudo amazon-linux-extras install epel -y
+            sudo yum install stress -y
+            sudo yum install -y httpd
+            sudo systemctl start httpd
+            sudo systemctl enable httpd
+            sudo yum install -y git
+            cd /home/ec2-user/
+            git clone https://github.com/luisapino/ProyectoFinal-Infra3.git
+            cd /home/ec2-user/ProyectoFinal-Infra3/
+            git checkout front
+            cd /home/ec2-user/ProyectoFinal-Infra3/Frontend/script
+            sudo rm API.js
+            cat <<EOF > /home/ec2-user/ProyectoFinal-Infra3/Frontend/script/API.js
+            export const backendUrl = '${BackendALB.DNSName}';
+            export const backendPort = '${BackendPort}';
+            EOF
+            cd /home/ec2-user/ProyectoFinal-Infra3/Frontend/
+            sudo cp . -r /var/www/html/
+            sudo systemctl restart httpd
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub ${EnvironmentName}FI
+
+  BackendLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    DeletionPolicy: Delete
+    Properties:
+      LaunchTemplateName: !Sub ${EnvironmentName}BLT
+      LaunchTemplateData:
+        ImageId: !FindInMap
+          - RegionMap
+          - !Ref AWS::Region
+          - AMI
+        InstanceType: !Ref InstanceType
+        KeyName: !Ref KeyName
+        SecurityGroupIds:
+          - !GetAtt BackendSecurityGroup.GroupId
+        UserData: !Base64
+          Fn::Sub: |
+            #!/bin/bash
+            yum update -y
+            yum install -y git
+            sudo -u ec2-user bash -c "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash"
+            export NVM_DIR="/home/ec2-user/.nvm"
+            sudo -u ec2-user bash -c 'export NVM_DIR="/home/ec2-user/.nvm" && \
+              [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && \
+              nvm install v16.20.2 && nvm alias default v16.20.2'
+            echo 'export NVM_DIR="$HOME/.nvm"' >> /home/ec2-user/.bashrc
+            echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"' >> /home/ec2-user/.bashrc
+            echo 'export PATH="$NVM_DIR/versions/node/v16.20.2/bin:$PATH"' >> /home/ec2-user/.bashrc
+            sudo -u ec2-user bash -c 'export NVM_DIR="/home/ec2-user/.nvm" && \
+              [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && \
+              npm install -g yarn pm2'
+            sudo -u ec2-user git clone https://github.com/luisapino/ProyectoFinal-Infra3.git /home/ec2-user/ProyectoFinal-Infra3
+            cd /home/ec2-user/ProyectoFinal-Infra3
+            sudo -u ec2-user git checkout back
+            cd /home/ec2-user/ProyectoFinal-Infra3/backend
+            sudo -u ec2-user bash -c 'export NVM_DIR="/home/ec2-user/.nvm" && \
+              [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && \
+              yarn install && yarn build'
+            cat <<EOF > /home/ec2-user/ProyectoFinal-Infra3/backend/.env
+            PORT=${BackendPort}
+            JWT_SECRET=${JwtSecret}
+            DB_HOST=${RDSInstance.Endpoint.Address}
+            DB_PORT=${DBPort}
+            DB_USERNAME=${DBUsername}
+            DB_PASSWORD=${DBPassword}
+            DB_DATABASE=${DBName}
+            EOF
+            sudo -u ec2-user bash -c 'export NVM_DIR="/home/ec2-user/.nvm" && \
+              [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && \
+              pm2 start yarn -- start && \
+              pm2 save && \
+              pm2 startup'
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub ${EnvironmentName}BI
+
+  #-------------------------------------------Auto Scaling Groups-------------------------------------------
+
+  FrontendAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    DeletionPolicy: Delete
+    Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref FrontendLaunchTemplate
+        Version: !GetAtt FrontendLaunchTemplate.LatestVersionNumber
+      MinSize: 2
+      MaxSize: 4
+      DesiredCapacity: 2
+      VPCZoneIdentifier:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      HealthCheckType: ELB
+      TargetGroupARNs:
+        - !Ref FrontendTargetGroup
+
+  BackendAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    DeletionPolicy: Delete
+    Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref BackendLaunchTemplate
+        Version: !GetAtt BackendLaunchTemplate.LatestVersionNumber
+      MinSize: 2
+      MaxSize: 4
+      DesiredCapacity: 2
+      VPCZoneIdentifier:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      HealthCheckType: ELB
+      TargetGroupARNs:
+        - !Ref BackendTargetGroup
+
+  FrontendCpuUsage:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref FrontendAutoScalingGroup
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ASGAverageCPUUtilization
+        TargetValue: 50
+
+  BackendCpuUsage:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref BackendAutoScalingGroup
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ASGAverageCPUUtilization
+        TargetValue: 50
+
+  FrontendScalingPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref FrontendAutoScalingGroup
+      ScalingAdjustment: '1'
+
+  BackendScalingPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref BackendAutoScalingGroup
+      ScalingAdjustment: '1'
+
+  #---------------------------------------------CloudWatch Alarms---------------------------------------------
+
+  FrontendCloudWatchAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      EvaluationPeriods: '1'
+      Statistic: Average
+      Threshold: '50'
+      AlarmDescription: Alarm if CPU higher than 50%
+      Period: '60'
+      AlarmActions:
+        - !Ref FrontendScalingPolicy
+      Namespace: AWS/EC2
+      Dimensions:
+        - Name: FrontendAutoScalingGroupName
+          Value: !Ref FrontendAutoScalingGroup
+      ComparisonOperator: GreaterThanThreshold
+      MetricName: CPUUtilization
+
+  BackendCloudWatchAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      EvaluationPeriods: '1'
+      Statistic: Average
+      Threshold: '50'
+      AlarmDescription: Alarm if CPU higher than 50%
+      Period: '60'
+      AlarmActions:
+        - !Ref BackendScalingPolicy
+      Namespace: AWS/EC2
+      Dimensions:
+        - Name: BackendAutoScalingGroupName
+          Value: !Ref BackendAutoScalingGroup
+      ComparisonOperator: GreaterThanThreshold
+      MetricName: CPUUtilization
+
+  #----------------------------------------------Target Groups----------------------------------------------
+
+  FrontendTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref VPC
+      TargetType: instance
+      HealthCheckPath: /index.html
+      Port: !Ref FrontendPort
+      Protocol: HTTP
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Frontend Target Group
+
+  BackendTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref VPC
+      TargetType: instance
+      HealthCheckPath: /health
+      Port: !Ref BackendPort
+      Protocol: HTTP
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Backend Target Group
+
+  #----------------------------------------------Load Balancers----------------------------------------------
+
+  FrontendALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Type: application
+      Name: !Sub ${EnvironmentName}FLB
+      Scheme: internet-facing
+      Subnets:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      SecurityGroups:
+        - !GetAtt FrontendSecurityGroup.GroupId
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Frontend Load Balancer
+
+  BackendALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Type: application
+      Name: !Sub ${EnvironmentName}BLB
+      Scheme: internal
+      Subnets:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      SecurityGroups:
+        - !GetAtt BackendSecurityGroup.GroupId
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Backend Load Balancer
+
+  FrontendALBlistener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      Protocol: HTTP
+      Port: !Ref FrontendPort
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref FrontendTargetGroup
+      LoadBalancerArn: !Ref FrontendALB
+
+  BackendALBlistener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      Protocol: HTTP
+      Port: !Ref BackendPort
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref BackendTargetGroup
+      LoadBalancerArn: !Ref BackendALB
+
+  #----------------------------------------------RDS----------------------------------------------
+
+  RdsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Permitir acceso desde EC2 a RDS
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref DBPort
+          ToPort: !Ref DBPort
+          SourceSecurityGroupId: !GetAtt BackendSecurityGroup.GroupId
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for RDS instance
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      Tags:
+        - Key: Name
+          Value: RDSSubnetGroup
+
+  CustomDBParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: Custom DB parameter group with SSL disabled
+      Family: postgres16
+      Parameters:
+        rds.force_ssl: '0'
+
+  RDSInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceClass: !Ref DBInstanceClass
+      AllocatedStorage: !Ref DBAllocatedStorage
+      Engine: postgres
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword: !Ref DBPassword
+      DBName: !Ref DBName
+      VPCSecurityGroups:
+        - !Ref RdsSecurityGroup
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      DBParameterGroupName: !Ref CustomDBParameterGroup
+      PubliclyAccessible: false
+
+Outputs:
+  VPC:
+    Description: Reference to created VPC
+    Value: !Ref VPC
+
+  PublicSubnets:
+    Description: List of public subnets
+    Value: !Join
+      - ','
+      - - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+
+  PublicSubnet1:
+    Description: Reference to public subnet in 1st Availability Zone
+    Value: !Ref PublicSubnet1
+
+  PublicSubnet2:
+    Description: Reference to public subnet in 2nd Availability Zone
+    Value: !Ref PublicSubnet2
+
+  PrivateSubnets:
+    Description: List of private subnets
+    Value: !Join
+      - ','
+      - - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+  PrivateSubnet1:
+    Description: Reference to private subnet in 1st Availability Zone
+    Value: !Ref PrivateSubnet1
+
+  PrivateSubnet2:
+    Description: Reference to private subnet in 2nd Availability Zone
+    Value: !Ref PrivateSubnet2
+
+  FrontendSecurityGroup:
+    Description: Security group with ingress rule
+    Value: !Ref FrontendSecurityGroup
+
+  BackendSecurityGroup:
+    Description: Security group with ingress rule
+    Value: !Ref BackendSecurityGroup

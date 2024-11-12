@@ -14,4 +14,4 @@ export const backendPort = ${BackendPort};
 EOF
 cd /home/ec2-user/ProyectoFinal-Infra3/Frontend/
 sudo cp /home/ec2-user/ProyectoFinal-Infra3/Frontend/ -r /var/www/html/
-sudo systemctl restart apache2
+sudo systemctl restart httpd

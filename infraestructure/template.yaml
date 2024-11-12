@@ -257,4 +257,4 @@ Resources:
         - !Ref RdsSecurityGroup
       DBSubnetGroupName: !Ref DBSubnetGroup
       DBParameterGroupName: !Ref CustomDBParameterGroup
-      PubliclyAccessible: true
+      PubliclyAccessible: false
