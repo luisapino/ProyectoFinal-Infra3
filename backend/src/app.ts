@@ -5,6 +5,7 @@ import cartRoutes from "./routes/cartRoutes";
 import { AppDataSource } from "./config/database";
 import cors from "cors";
 import healthRoute from "./routes/healthRoute";
+import dotenv from "dotenv";
 
 const app = express();
 app.use(express.json());
@@ -16,12 +17,13 @@ app.use("/products", productRoutes);
 app.use("/cart", cartRoutes);
 app.use("/health", healthRoute);
 
-console.log(process.env.DB_PASSWORD);
+dotenv.config();
 
+const PORT = parseInt(process.env.PORT || "3000");
 AppDataSource.initialize()
     .then(() => {
         console.log("Database connected");
-        app.listen(3000, () => console.log("Server running on port 3000"));
+        app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
     })
     .catch((error) => console.log(error));
     app.use(cors());
