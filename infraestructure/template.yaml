@@ -112,7 +112,7 @@ Resources:
     Properties:
       SubnetId: !Ref BackendSubnet1
       RouteTableId: !Ref PublicRouteTable
-  
+
   BackendSubnet2:
     Type: AWS::EC2::Subnet
     Properties:
@@ -171,33 +171,24 @@ Resources:
           #!/bin/bash
           yum update -y
           yum install -y git
-
           sudo -u ec2-user bash -c "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash"
-
           export NVM_DIR="/home/ec2-user/.nvm"
-
           sudo -u ec2-user bash -c 'export NVM_DIR="/home/ec2-user/.nvm" && \
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && \
             nvm install v16.20.2 && nvm alias default v16.20.2'
-
           echo 'export NVM_DIR="$HOME/.nvm"' >> /home/ec2-user/.bashrc
           echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"' >> /home/ec2-user/.bashrc
           echo 'export PATH="$NVM_DIR/versions/node/v16.20.2/bin:$PATH"' >> /home/ec2-user/.bashrc
-
           sudo -u ec2-user bash -c 'export NVM_DIR="/home/ec2-user/.nvm" && \
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && \
             npm install -g yarn pm2'
-
           sudo -u ec2-user git clone https://github.com/luisapino/ProyectoFinal-Infra3.git /home/ec2-user/ProyectoFinal-Infra3
           cd /home/ec2-user/ProyectoFinal-Infra3
           sudo -u ec2-user git checkout back
-
           cd /home/ec2-user/ProyectoFinal-Infra3/backend
-
           sudo -u ec2-user bash -c 'export NVM_DIR="/home/ec2-user/.nvm" && \
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && \
             yarn install && yarn build'
-
           cat <<EOF > /home/ec2-user/ProyectoFinal-Infra3/backend/.env
           PORT=${BackendPort}
           JWT_SECRET=${JwtSecret}
@@ -207,7 +198,6 @@ Resources:
           DB_PASSWORD=${DBPassword}
           DB_DATABASE=${DBName}
           EOF
-
           sudo -u ec2-user bash -c 'export NVM_DIR="/home/ec2-user/.nvm" && \
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && \
             pm2 start yarn -- start && \
@@ -228,7 +218,7 @@ Resources:
   DBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
-      DBSubnetGroupDescription: "Subnet group for RDS instance"
+      DBSubnetGroupDescription: Subnet group for RDS instance
       SubnetIds:
         - !Ref BackendSubnet1
         - !Ref BackendSubnet2
@@ -242,7 +232,7 @@ Resources:
       Description: Custom DB parameter group with SSL disabled
       Family: postgres16
       Parameters:
-        rds.force_ssl: "0"
+        rds.force_ssl: '0'
 
   RDSInstance:
     Type: AWS::RDS::DBInstance

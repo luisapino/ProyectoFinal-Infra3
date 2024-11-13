@@ -218,15 +218,6 @@ Resources:
     Properties:
       GroupDescription: Enable HTTP access on the inbound port ${FrontendPort}
       VpcId: !Ref VPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: !Ref FrontendPort
-          ToPort: !Ref FrontendPort
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: 0.0.0.0/0
 
   BackendSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -234,11 +225,89 @@ Resources:
     Properties:
       GroupDescription: Enable HTTP access on the inbound port ${BackendPort}
       VpcId: !Ref VPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: !Ref BackendPort
-          ToPort: !Ref BackendPort
-          SourceSecurityGroupId: !GetAtt FrontendSecurityGroup.GroupId
+
+  RdsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Permitir acceso desde EC2 a RDS
+
+  #----------------------------------------------Inbound and Outbound Rules----------------------------------------------
+
+  InboundRuleFrontendSSH:
+    Type: AWS::EC2::SecurityGroupIngress
+    DeletionPolicy: Delete
+    Properties:
+      GroupId: !GetAtt FrontendSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      CidrIp: 0.0.0.0/0
+  InboundRuleFrontendHTTP:
+    Type: AWS::EC2::SecurityGroupIngress
+    DeletionPolicy: Delete
+    Properties:
+      GroupId: !GetAtt FrontendSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: !Ref FrontendPort
+      ToPort: !Ref FrontendPort
+      CidrIp: 0.0.0.0/0
+  OutboundRuleFrontendToBackend:
+    Type: AWS::EC2::SecurityGroupEgress
+    DeletionPolicy: Delete
+    Properties:
+      GroupId: !GetAtt FrontendSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: !Ref BackendPort
+      ToPort: !Ref BackendPort
+      DestinationSecurityGroupId: !GetAtt BackendSecurityGroup.GroupId
+  OutboundRuleFrontendToInternet:
+    Type: AWS::EC2::SecurityGroupEgress
+    DeletionPolicy: Delete
+    Properties:
+      GroupId: !GetAtt FrontendSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: 0
+      ToPort: 65535
+      CidrIp: 0.0.0.0/0
+
+  InboundRuleBackend:
+    Type: AWS::EC2::SecurityGroupIngress
+    DeletionPolicy: Delete
+    Properties:
+      GroupId: !GetAtt BackendSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: !Ref BackendPort
+      ToPort: !Ref BackendPort
+      SourceSecurityGroupId: !GetAtt FrontendSecurityGroup.GroupId
+  OutboundRuleBackend:
+    Type: AWS::EC2::SecurityGroupEgress
+    DeletionPolicy: Delete
+    Properties:
+      GroupId: !GetAtt BackendSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: !Ref DBPort
+      ToPort: !Ref DBPort
+      DestinationSecurityGroupId: !GetAtt RdsSecurityGroup.GroupId
+  OutboundRuleBackendToInternet:
+    Type: AWS::EC2::SecurityGroupEgress
+    DeletionPolicy: Delete
+    Properties:
+      GroupId: !GetAtt BackendSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: 0
+      ToPort: 65535
+      CidrIp: 0.0.0.0/0
+
+  InboundRuleDB:
+    Type: AWS::EC2::SecurityGroupIngress
+    DeletionPolicy: Delete
+    Properties:
+      GroupId: !GetAtt RdsSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: !Ref DBPort
+      ToPort: !Ref DBPort
+      SourceSecurityGroupId: !GetAtt BackendSecurityGroup.GroupId
 
   #----------------------------------------------Launch Templates----------------------------------------------
 
@@ -536,17 +605,6 @@ Resources:
       LoadBalancerArn: !Ref BackendALB
 
   #----------------------------------------------RDS----------------------------------------------
-
-  RdsSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      VpcId: !Ref VPC
-      GroupDescription: Permitir acceso desde EC2 a RDS
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: !Ref DBPort
-          ToPort: !Ref DBPort
-          SourceSecurityGroupId: !GetAtt BackendSecurityGroup.GroupId
 
   DBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
