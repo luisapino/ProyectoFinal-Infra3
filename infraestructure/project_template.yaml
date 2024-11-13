@@ -67,7 +67,7 @@ Parameters:
   # Parámetros para la configuración del backend dentro de la instancia EC2
   BackendPort:
     Type: Number
-    Default: 8080
+    Default: 80
     Description: Puerto para el backend de la aplicación.
   JwtSecret:
     Type: String
@@ -177,7 +177,7 @@ Resources:
         - Key: Name
           Value: !Sub ${EnvironmentName} Private Subnet (AZ2)
 
-  #--------------------------------------------Public route and associations--------------------------------------------
+  #--------------------------------------------Public route and associations (for public subnets)--------------------------------------------
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
     DeletionPolicy: Delete
@@ -209,6 +209,79 @@ Resources:
     Properties:
       RouteTableId: !Ref PublicRouteTable
       SubnetId: !Ref PublicSubnet2
+
+  #----------------------------------------------Nat Gateway----------------------------------------------
+  NatGatewayEIP1:
+    Type: AWS::EC2::EIP
+    DeletionPolicy: Delete
+
+  NatGatewayEIP2:
+    Type: AWS::EC2::EIP
+    DeletionPolicy: Delete
+
+  NatGateway1:
+    Type: AWS::EC2::NatGateway
+    DeletionPolicy: Delete
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      AllocationId: !GetAtt NatGatewayEIP1.AllocationId
+      SubnetId: !Ref PublicSubnet1
+
+  NatGateway2:
+    Type: AWS::EC2::NatGateway
+    DeletionPolicy: Delete
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      AllocationId: !GetAtt NatGatewayEIP2.AllocationId
+      SubnetId: !Ref PublicSubnet2
+
+  PrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    DeletionPolicy: Delete
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Routes (AZ1)
+
+  PrivateRouteTable2:
+    Type: AWS::EC2::RouteTable
+    DeletionPolicy: Delete
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Routes (AZ2)
+
+  PrivateRoute1:
+    Type: AWS::EC2::Route
+    DeletionPolicy: Delete
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway1
+
+  PrivateRoute2:
+    Type: AWS::EC2::Route
+    DeletionPolicy: Delete
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway2
+
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DeletionPolicy: Delete
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      SubnetId: !Ref PrivateSubnet1
+
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DeletionPolicy: Delete
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable2
+      SubnetId: !Ref PrivateSubnet2
 
   #----------------------------------------------Security Groups----------------------------------------------
 
@@ -271,7 +344,7 @@ Resources:
       ToPort: 65535
       CidrIp: 0.0.0.0/0
 
-  InboundRuleBackend:
+  InboundRuleBackendFromFrontend:
     Type: AWS::EC2::SecurityGroupIngress
     DeletionPolicy: Delete
     Properties:
@@ -280,7 +353,16 @@ Resources:
       FromPort: !Ref BackendPort
       ToPort: !Ref BackendPort
       SourceSecurityGroupId: !GetAtt FrontendSecurityGroup.GroupId
-  OutboundRuleBackend:
+  InboundRuleBackendSSH:
+    Type: AWS::EC2::SecurityGroupIngress
+    DeletionPolicy: Delete
+    Properties:
+      GroupId: !GetAtt BackendSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      SourceSecurityGroupId: !GetAtt FrontendSecurityGroup.GroupId
+  OutboundRuleBackendToRDS:
     Type: AWS::EC2::SecurityGroupEgress
     DeletionPolicy: Delete
     Properties:
