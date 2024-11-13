@@ -271,7 +271,7 @@ Resources:
             cd /home/ec2-user/ProyectoFinal-Infra3/Frontend/script
             sudo rm API.js
             cat <<EOF > /home/ec2-user/ProyectoFinal-Infra3/Frontend/script/API.js
-            export const backendUrl = '${BackendALB.DNSName}';
+            export const backendUrl = 'http://${BackendALB.DNSName}';
             export const backendPort = '${BackendPort}';
             EOF
             cd /home/ec2-user/ProyectoFinal-Infra3/Frontend/
