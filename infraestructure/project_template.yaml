@@ -67,7 +67,7 @@ Parameters:
   # Parámetros para la configuración del backend dentro de la instancia EC2
   BackendPort:
     Type: Number
-    Default: 3000
+    Default: 8080
     Description: Puerto para el backend de la aplicación.
   JwtSecret:
     Type: String
@@ -271,11 +271,12 @@ Resources:
             cd /home/ec2-user/ProyectoFinal-Infra3/Frontend/script
             sudo rm API.js
             cat <<EOF > /home/ec2-user/ProyectoFinal-Infra3/Frontend/script/API.js
-            export const backendUrl = 'http://${BackendALB.DNSName}';
+            export const backendUrl = '${BackendALB.DNSName}';
             export const backendPort = '${BackendPort}';
             EOF
             cd /home/ec2-user/ProyectoFinal-Infra3/Frontend/
             sudo cp . -r /var/www/html/
+            sudo chkconfig httpd on
             sudo service httpd start
         TagSpecifications:
           - ResourceType: instance
@@ -356,6 +357,7 @@ Resources:
         - !Ref PublicSubnet1
         - !Ref PublicSubnet2
       HealthCheckType: ELB
+      HealthCheckGracePeriod: 300
       TargetGroupARNs:
         - !Ref FrontendTargetGroup
 
@@ -373,6 +375,7 @@ Resources:
         - !Ref PrivateSubnet1
         - !Ref PrivateSubnet2
       HealthCheckType: ELB
+      HealthCheckGracePeriod: 300
       TargetGroupARNs:
         - !Ref BackendTargetGroup
 
@@ -454,11 +457,15 @@ Resources:
       VpcId: !Ref VPC
       TargetType: instance
       HealthCheckPath: /index.html
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
       Port: !Ref FrontendPort
       Protocol: HTTP
       Tags:
         - Key: Name
-          Value: !Sub ${EnvironmentName} Frontend Target Group
+          Value: !Sub ${EnvironmentName}FTG
 
   BackendTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
@@ -466,11 +473,15 @@ Resources:
       VpcId: !Ref VPC
       TargetType: instance
       HealthCheckPath: /health
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
       Port: !Ref BackendPort
       Protocol: HTTP
       Tags:
         - Key: Name
-          Value: !Sub ${EnvironmentName} Backend Target Group
+          Value: !Sub ${EnvironmentName}BTG
 
   #----------------------------------------------Load Balancers----------------------------------------------
 
@@ -487,7 +498,7 @@ Resources:
         - !GetAtt FrontendSecurityGroup.GroupId
       Tags:
         - Key: Name
-          Value: !Sub ${EnvironmentName} Frontend Load Balancer
+          Value: !Sub ${EnvironmentName}FLB
 
   BackendALB:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
@@ -502,7 +513,7 @@ Resources:
         - !GetAtt BackendSecurityGroup.GroupId
       Tags:
         - Key: Name
-          Value: !Sub ${EnvironmentName} Backend Load Balancer
+          Value: !Sub ${EnvironmentName}BLB
 
   FrontendALBlistener:
     Type: AWS::ElasticLoadBalancingV2::Listener
