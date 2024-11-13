@@ -227,6 +227,11 @@ Resources:
           FromPort: 22
           ToPort: 22
           CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: !Ref BackendPort
+          ToPort: !Ref BackendPort
+          DestinationSecurityGroupId: !GetAtt BackendSecurityGroup.GroupId
 
   BackendSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -271,7 +276,7 @@ Resources:
             cd /home/ec2-user/ProyectoFinal-Infra3/Frontend/script
             sudo rm API.js
             cat <<EOF > /home/ec2-user/ProyectoFinal-Infra3/Frontend/script/API.js
-            export const backendUrl = '${BackendALB.DNSName}';
+            export const backendUrl = '$http://{BackendALB.DNSName}';
             export const backendPort = '${BackendPort}';
             EOF
             cd /home/ec2-user/ProyectoFinal-Infra3/Frontend/
