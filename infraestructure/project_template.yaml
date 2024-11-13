@@ -67,7 +67,7 @@ Parameters:
   # Parámetros para la configuración del backend dentro de la instancia EC2
   BackendPort:
     Type: Number
-    Default: 80
+    Default: 8080
     Description: Puerto para el backend de la aplicación.
   JwtSecret:
     Type: String
@@ -325,6 +325,15 @@ Resources:
       FromPort: !Ref FrontendPort
       ToPort: !Ref FrontendPort
       CidrIp: 0.0.0.0/0
+  InboundRuleFrontendFromBackend:
+    Type: AWS::EC2::SecurityGroupIngress
+    DeletionPolicy: Delete
+    Properties:
+      GroupId: !GetAtt FrontendSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: !Ref BackendPort
+      ToPort: !Ref BackendPort
+      SourceSecurityGroupId: !GetAtt BackendSecurityGroup.GroupId
   OutboundRuleFrontendToBackend:
     Type: AWS::EC2::SecurityGroupEgress
     DeletionPolicy: Delete
