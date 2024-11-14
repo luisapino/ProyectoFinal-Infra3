@@ -1,0 +1,183 @@
+Parameters:
+  # Parámetro del nombre del evironment
+  EnvironmentName:
+    Description: Nombre del evnironment
+    Type: String
+    Default: PrInfra
+
+  # Parametros de la VPC y subredes
+  VPCCIDR:
+    Description: Enter CIDR notation for VPC
+    Type: String
+    Default: 10.10.0.0/16
+  PublicSubnet1CIDR:
+    Description: Enter CIDR notation for public subnet in first Availability Zone
+    Type: String
+    Default: 10.10.1.0/24
+  PublicSubnet2CIDR:
+    Description: Enter CIDR notation for public subnet in second Availability Zone
+    Type: String
+    Default: 10.10.2.0/24
+  PrivateSubnet1CIDR:
+    Description: Enter CIDR notation for private subnet in first Availability Zone
+    Type: String
+    Default: 10.10.3.0/24
+  PrivateSubnet2CIDR:
+    Description: Enter CIDR notation for private subnet in second Availability Zone
+    Type: String
+    Default: 10.10.4.0/24
+
+  # Parámetros para la configuración de la base de datos RDS
+  DBInstanceClass:
+    Type: String
+    Default: db.t3.micro
+    Description: Tipo de instancia para la base de datos.
+  DBAllocatedStorage:
+    Type: Number
+    Default: 20
+    Description: Tamaño del almacenamiento en GB para la base de datos.
+  DBName:
+    Type: String
+    Default: ecommerce_db
+    Description: Nombre de la base de datos en RDS.
+  DBUsername:
+    Type: String
+    Default: postgres
+    Description: Usuario de la base de datos.
+  DBPassword:
+    Type: String
+    NoEcho: true
+    Default: password
+    Description: Contraseña para la base de datos en RDS.
+  DBPort:
+    Type: Number
+    Default: 5432
+    Description: Puerto para la base de datos en RDS.
+
+  # Parámetros para la configuración de la instancia EC2
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    Description: Tipo de instancia para el servidor EC2.
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: vockey
+    Description: Nombre del par de claves SSH para acceder a la instancia EC2.
+
+  # Parámetros para la configuración del backend dentro de la instancia EC2
+  BackendPort:
+    Type: Number
+    Default: 8080
+    Description: Puerto para el backend de la aplicación.
+  JwtSecret:
+    Type: String
+    Default: f1878ae99c35e588ab657ce6c0692405f6c6e589550f3d1ceeb974f6c316612a
+    Description: Secreto para JWT.
+
+  # Parámetros para la configuración del frontend dentro de la instancia EC2
+  FrontendPort:
+    Type: Number
+    Default: 80
+    Description: Puerto para el frontend de la aplicación.
+
+Mappings:
+  RegionMap:
+    us-east-1:
+      AMI: ami-467ca739
+    us-west-1:
+      AMI: ami-bf5540df
+    eu-west-1:
+      AMI: ami-3bfab942
+    ap-southeast-1:
+      AMI: ami-e2adf99e
+    ap-southeast-2:
+      AMI: ami-43874721
+
+Resources:
+  MyVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VPCCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-vpc"
+
+  MyInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-igw"
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref MyVPC
+      InternetGatewayId: !Ref MyInternetGateway
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-public-rt"
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref MyInternetGateway
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MyPublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+
+  MyPublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: !Ref PublicSubnet1CIDR
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs ''
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-public-subnet-1"
+
+  MySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access
+      VpcId: !Ref MyVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-sg"
+
+  MyEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      ImageId: !FindInMap
+          - RegionMap
+          - !Ref AWS::Region
+          - AMI
+      SubnetId: !Ref MyPublicSubnet1
+      SecurityGroupIds:
+        - !Ref MySecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName}-ec2"
