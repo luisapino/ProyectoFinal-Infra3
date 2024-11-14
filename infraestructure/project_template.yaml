@@ -362,6 +362,15 @@ Resources:
       FromPort: !Ref BackendPort
       ToPort: !Ref BackendPort
       SourceSecurityGroupId: !GetAtt FrontendSecurityGroup.GroupId
+  InboundRuleBackendFromBackend:
+    Type: AWS::EC2::SecurityGroupIngress
+    DeletionPolicy: Delete
+    Properties:
+      GroupId: !GetAtt BackendSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: !Ref BackendPort
+      ToPort: !Ref BackendPort
+      SourceSecurityGroupId: !GetAtt BackendSecurityGroup.GroupId
   InboundRuleBackendSSH:
     Type: AWS::EC2::SecurityGroupIngress
     DeletionPolicy: Delete
@@ -620,7 +629,7 @@ Resources:
       HealthCheckIntervalSeconds: 30
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 2
-      UnhealthyThresholdCount: 3
+      UnhealthyThresholdCount: 10
       Port: !Ref FrontendPort
       Protocol: HTTP
       Tags:
@@ -636,7 +645,7 @@ Resources:
       HealthCheckIntervalSeconds: 30
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 2
-      UnhealthyThresholdCount: 3
+      UnhealthyThresholdCount: 10
       Port: !Ref BackendPort
       Protocol: HTTP
       Tags:
