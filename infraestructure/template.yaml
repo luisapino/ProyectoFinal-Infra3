@@ -84,7 +84,7 @@ Parameters:
   NotificationEmail:
     Type: String
     Description: Email address to receive notifications
-    Default: 1110362797@u.icesi.edu.co
+    Default: sjbs0212@gmail.com
 
 Mappings:
   RegionMap:
