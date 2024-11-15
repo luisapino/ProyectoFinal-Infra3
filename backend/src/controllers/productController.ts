@@ -7,6 +7,7 @@ export const initializeProducts = async (_req: Request, res: Response): Promise<
             {
                 name: "PC gamer",
                 description: "PC gamer",
+                price: 3000000,
                 imageUrl: "https://exitocol.vtexassets.com/arquivos/ids/13631368/computador-pc-torre-gamer-power-l38-amd-ryzen-7-5700g-ssd-128-hdd-1tb-ram-16gb-led-22-pulgadas.jpg?v=637934996671430000",
                 bought: false,
                 buyerUser: null
@@ -14,6 +15,7 @@ export const initializeProducts = async (_req: Request, res: Response): Promise<
             {
                 name: "Portatil gamer",
                 description: "Portatil gamer",
+                price: 2000000,
                 imageUrl: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRKcxE1fXXdlxqwN6WR4S00xzVlRCLHjJw_Cw&s",
                 bought: false,
                 buyerUser: null
@@ -21,6 +23,7 @@ export const initializeProducts = async (_req: Request, res: Response): Promise<
             {
                 name: "Televisor",
                 description: "Televisor",
+                price: 2500000,
                 imageUrl: "https://www.semana.com/resizer/v2/4GDPNFO3X5HKZC6KCFPXBWKTBQ.jpg?auth=e3c645995c2ebccecef6f9f2b0bd60477f2ea13759850cc09984eebc215c8349&smart=true&quality=75&width=1280&fitfill=false",
                 bought: false,
                 buyerUser: null
