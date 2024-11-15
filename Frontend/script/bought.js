@@ -24,7 +24,7 @@ $(document).ready(function() {
                     <div class="product-card">
                         <img src="${product.imageUrl}" alt="${product.name}">
                         <h3>${product.name}</h3>
-                        
+                        <p>Precio: $${product.price}</p>
                     </div>
                 `).join('');
                 $('#products').html(productsHtml);

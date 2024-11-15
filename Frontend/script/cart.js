@@ -23,6 +23,7 @@ $(document).ready(function() {
                     <div class="product-card">
                         <h3>${item.name}</h3>
                         <img src="${item.imageUrl}" alt="${item.name}" />
+                        <p>Precio: $${item.price}</p>
                     </div>
                 `);
             });
