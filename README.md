@@ -97,5 +97,103 @@ La infraestructura desplegada consiste en:
 3. **Verificar Limpieza**: Asegurarse de que todos los recursos se eliminaron.
 
 ---
+## Guía de Prueba de Estrés para EC2 probando el Auto Scaling
+
+## Conexión SSH a la Instancia EC2
+
+```bash
+# Asegúrate de que tu archivo .pem tenga los permisos correctos
+chmod 400 tu-key.pem
+
+# Conéctate a la instancia
+ssh -i "tu-key.pem" ec2-user@tu-ip-publica
+```
+
+## Creación del Script de Prueba
+
+1. Crear el archivo de script:
+```bash
+nano stress_test.sh
+```
+
+2. Copiar el siguiente contenido:
+```bash
+#!/bin/bash
+# Función para mostrar el uso de CPU actual
+show_cpu_usage() {
+    top -bn1 | grep "Cpu(s)" | \
+    sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | \
+    awk '{print 100 - $1"%"}'
+}
+
+# Función para realizar la prueba de carga
+run_load_test() {
+    duration=$1
+    cpu_cores=$2
+    
+    echo "Iniciando prueba de carga..."
+    echo "CPU antes de la prueba: $(show_cpu_usage)"
+    
+    # Ejecuta stress por la duración especificada usando el número de cores especificado
+    stress --cpu $cpu_cores --timeout ${duration}s
+    
+    echo "Prueba completada"
+    echo "CPU después de la prueba: $(show_cpu_usage)"
+}
+
+# Ejecuta la prueba de carga por 50 minutos usando 2 cores
+run_load_test 3000 2
+```
+
+3. Guardar el archivo:
+- Presiona `Ctrl + X`
+- Presiona `Y` para confirmar
+- Presiona `Enter` para guardar
+
+## Preparación y Ejecución
+
+1. Instalar stress (si no está instalado):
+```bash
+# Para Amazon Linux/RHEL
+sudo yum install stress -y
+
+# Para Ubuntu
+sudo apt-get update
+sudo apt-get install stress -y
+```
+
+2. Dar permisos de ejecución al script:
+```bash
+chmod +x stress_test.sh
+```
+
+3. Ejecutar el script:
+```bash
+./stress_test.sh
+```
+
+## Monitoreo con CloudWatch
+
+1. Configurar alarmas en CloudWatch:
+   - Ve a la consola de AWS
+   - Navega a CloudWatch
+   - Crea una nueva alarma:
+     - Métrica: EC2 > Per-Instance Metrics > CPUUtilization
+     - Condición: mayor que 80%
+     - Período: 5 minutos
+     - Acciones: Configurar notificación SNS (opcional)
+
+2. Durante la prueba, puedes monitorear:
+   - CPU Utilization
+   - Status Check
+   - Network In/Out
+   - Disk I/O
+
+3. Acceso a métricas en tiempo real:
+   - Dashboard de CloudWatch
+   - Pestaña de monitoreo en la consola EC2
+   - Gráficos detallados de utilización
+
+Y ya finalmente cuando las alarmas se inicien, podrás ver como llega la notificación a correo y se empiezan a crear un instancias por el auto scaling para soportar el tráfico.
 
 **Nota de Seguridad**: Mantener registro de todos los cambios realizados y seguir las mejores prácticas de seguridad de AWS en todo momento.
